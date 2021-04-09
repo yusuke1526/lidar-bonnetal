@@ -130,10 +130,12 @@ if __name__ == '__main__':
 
   # create a scan
   if FLAGS.ignore_semantics:
-    scan = LaserScan(project=True)  # project all opened scans to spheric proj
+    #scan = LaserScan(project=True)  # project all opened scans to spheric proj
+    scan = LaserScan(project=True, H=64, W=1024, fov_up=3.0, fov_down=-25.0)
   else:
     color_dict = CFG["color_map"]
-    scan = SemLaserScan(color_dict, project=True)
+    #scan = SemLaserScan(color_dict, project=True) #3, -25,  1024, 64
+    scan = SemLaserScan(color_dict, project=True, H=128, W=1024, fov_up=15.0, fov_down=-25.0)
 
   # create a visualizer
   semantics = not FLAGS.ignore_semantics

@@ -9,3 +9,9 @@
 devel/
 logs/
 external.hpp
+train/tasks/semantic/model/
+train/tasks/semantic/predictions/
+train/tasks/semantic/sub_dataset/
+train/tasks/semantic/dataset/sequences/
+train/tasks/semantic/dataset/.*/
+

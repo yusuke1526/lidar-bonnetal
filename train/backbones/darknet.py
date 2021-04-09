@@ -4,7 +4,9 @@
 import torch.nn as nn
 from collections import OrderedDict
 import torch.nn.functional as F
-
+import yaml
+import numpy as np
+import torch
 
 class BasicBlock(nn.Module):
   def __init__(self, inplanes, planes, bn_d=0.1):
@@ -187,3 +189,15 @@ class Backbone(nn.Module):
 
   def get_input_depth(self):
     return self.input_depth
+
+
+if __name__=="__main__":
+  arch = yaml.safe_load(open("../tasks/semantic/config/arch/darknet53-1024px.yaml", "r"))
+  backbone = Backbone(params=arch["backbone"])
+  print(backbone)
+
+  x = np.random.rand(1,5,64,1024)
+  x = torch.from_numpy(x.astype(np.float32)).clone()
+  print(x.shape)
+  y, z = backbone(x)
+  print(y.shape)

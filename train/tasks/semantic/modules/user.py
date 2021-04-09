@@ -16,6 +16,7 @@ import copy
 import cv2
 import os
 import numpy as np
+import sys
 
 from tasks.semantic.modules.segmentator import *
 from tasks.semantic.postproc.KNN import KNN
@@ -64,23 +65,26 @@ class User():
     # GPU?
     self.gpu = False
     self.model_single = self.model
-    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    self.device = torch.device("cpu")
+    #self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Infering in device: ", self.device)
-    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-      cudnn.benchmark = True
-      cudnn.fastest = True
-      self.gpu = True
-      self.model.cuda()
+    # if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+    #   cudnn.benchmark = True
+    #   cudnn.fastest = True
+    #   self.gpu = True
+    #   self.model.cuda()
 
   def infer(self):
-    # do train set
-    self.infer_subset(loader=self.parser.get_train_set(),
-                      to_orig_fn=self.parser.to_original)
+    #do train set
+    # self.infer_subset(loader=self.parser.get_train_set(),
+    #                 to_orig_fn=self.parser.to_original)
 
     # do valid set
-    self.infer_subset(loader=self.parser.get_valid_set(),
-                      to_orig_fn=self.parser.to_original)
+    # self.infer_subset(loader=self.parser.get_valid_set(),
+    #                   to_orig_fn=self.parser.to_original)
     # do test set
+    #print(self.parser.get_test_set())
+    #sys.exit()
     self.infer_subset(loader=self.parser.get_test_set(),
                       to_orig_fn=self.parser.to_original)
 
@@ -100,7 +104,10 @@ class User():
       end = time.time()
 
       for i, (proj_in, proj_mask, _, _, path_seq, path_name, p_x, p_y, proj_range, unproj_range, _, _, _, _, npoints) in enumerate(loader):
+        #print(proj_in.shape)
         # first cut to rela size (batch size one allows it)
+        #print(p_x[0][:10])
+        #print(p_y[0][:10])
         p_x = p_x[0, :npoints]
         p_y = p_y[0, :npoints]
         proj_range = proj_range[0, :npoints]

@@ -93,22 +93,24 @@ class Trainer():
     self.multi_gpu = False
     self.n_gpus = 0
     self.model_single = self.model
-    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #not using gpu
+    self.device = torch.device("cpu")
+    # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Training in device: ", self.device)
-    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-      cudnn.benchmark = True
-      cudnn.fastest = True
-      self.gpu = True
-      self.n_gpus = 1
-      self.model.cuda()
-    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-      print("Let's use", torch.cuda.device_count(), "GPUs!")
-      self.model = nn.DataParallel(self.model)   # spread in gpus
-      self.model = convert_model(self.model).cuda()  # sync batchnorm
-      self.model_single = self.model.module  # single model to get weight names
-      self.multi_gpu = True
-      self.n_gpus = torch.cuda.device_count()
-
+    # if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+    #   cudnn.benchmark = True
+    #   cudnn.fastest = True
+    #   self.gpu = True
+    #   self.n_gpus = 1
+    #   self.model.cuda()
+    # if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+    #   print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #   self.model = nn.DataParallel(self.model)   # spread in gpus
+    #   self.model = convert_model(self.model).cuda()  # sync batchnorm
+    #   self.model_single = self.model.module  # single model to get weight names
+    #   self.multi_gpu = True
+    #   self.n_gpus = torch.cuda.device_count()
+      
     # loss
     if "loss" in self.ARCH["train"].keys() and self.ARCH["train"]["loss"] == "xentropy":
       self.criterion = nn.NLLLoss(weight=self.loss_w).to(self.device)
@@ -305,7 +307,9 @@ class Trainer():
 
     end = time.time()
     for i, (in_vol, proj_mask, proj_labels, _, path_seq, path_name, _, _, _, _, _, _, _, _, _) in enumerate(train_loader):
-        # measure data loading time
+      #print(in_vol.shape)
+      #print(proj_mask.shape)
+      # measure data loading time
       data_time.update(time.time() - end)
       if not self.multi_gpu and self.gpu:
         in_vol = in_vol.cuda()
@@ -313,8 +317,11 @@ class Trainer():
       if self.gpu:
         proj_labels = proj_labels.cuda(non_blocking=True).long()
 
+      if not self.gpu:
+        proj_labels = proj_labels.long()
       # compute output
       output = model(in_vol, proj_mask)
+      print(output)
       loss = criterion(torch.log(output.clamp(min=1e-8)), proj_labels)
 
       # compute gradient and do SGD step
@@ -410,6 +417,8 @@ class Trainer():
         if self.gpu:
           proj_labels = proj_labels.cuda(non_blocking=True).long()
 
+        if not self.gpu:
+          proj_labels = proj_labels.long()
         # compute output
         output = model(in_vol, proj_mask)
         loss = criterion(torch.log(output.clamp(min=1e-8)), proj_labels)

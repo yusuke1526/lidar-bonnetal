@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # This file is covered by the LICENSE file in the root of this project.
 import numpy as np
-
+import time
+import sys
 
 class LaserScan:
   """Class that contains LaserScan with x,y,z,r"""
@@ -13,6 +14,8 @@ class LaserScan:
     self.proj_W = W
     self.proj_fov_up = fov_up
     self.proj_fov_down = fov_down
+
+    self.tier = False
     self.reset()
 
   def reset(self):
@@ -76,7 +79,9 @@ class LaserScan:
 
     # put in attribute
     points = scan[:, 0:3]    # get xyz
+    #print(points[0:100])
     remissions = scan[:, 3]  # get remission
+    #print(remissions[0:100])
     self.set_points(points, remissions)
 
   def set_points(self, points, remissions=None):
@@ -110,6 +115,7 @@ class LaserScan:
         if the value of the constructor was not set (in case you change your
         mind about wanting the projection)
     """
+    print("----------------")
     # laser parameters
     fov_up = self.proj_fov_up / 180.0 * np.pi      # field of view up in rad
     fov_down = self.proj_fov_down / 180.0 * np.pi  # field of view down in rad
@@ -117,20 +123,45 @@ class LaserScan:
 
     # get depth of all points
     depth = np.linalg.norm(self.points, 2, axis=1)
+    #np.set_printoptions(threshold=np.inf)
+    #print(depth[10000:10100])
+    #print(depth.shape)
 
     # get scan components
     scan_x = self.points[:, 0]
     scan_y = self.points[:, 1]
     scan_z = self.points[:, 2]
 
+    #depth = np.sqrt(scan_x ** 2 + scan_y ** 2)
+
     # get angles of all points
-    yaw = -np.arctan2(scan_y, scan_x)
+    yaw = np.arctan2(-scan_y, scan_x)
+    #print("yaw:", yaw)
     pitch = np.arcsin(scan_z / depth)
+    #print("pitch:", pitch)
 
     # get projections in image coords
     proj_x = 0.5 * (yaw / np.pi + 1.0)          # in [0.0, 1.0]
+    #print("proj_x:", proj_x[0:10])
     proj_y = 1.0 - (pitch + abs(fov_down)) / fov        # in [0.0, 1.0]
+    #print("proj_y:", proj_y[0:10])
+    #print(np.min(proj_y))
+    #print(np.max(proj_y))
+    
+    #print(proj_y[0:100])
+    # if self.tier:
+    #   print(np.max(proj_y))
+    #   #proj_y = np.where(proj_y <= 0.5, proj_y*2, 1.0)
+    #   #proj_y = np.maximum(0, proj_y).astype(np.float32)
+    #   #proj_y = np.where(proj_y >= 0.01, np.sqrt(proj_y), proj_y)
+    #   proj_y = np.where(proj_y >= 0.4, (proj_y - 0.4)/5.0 + 0.4 , proj_y)
+    #   #proj_y = np.sqrt(proj_y)
 
+    #   proj_y *= 1.0/ 0.52
+    #   #proj_y = np.where(proj_y >= 0.6, (proj_y - 0.6)/5.0 + 0.6 , proj_y)
+    #   #proj_y *= 1.0/0.68
+    #   print(np.max(proj_y))
+      
     # scale to image size using angular resolution
     proj_x *= self.proj_W                              # in [0.0, W]
     proj_y *= self.proj_H                              # in [0.0, H]
@@ -141,10 +172,18 @@ class LaserScan:
     proj_x = np.maximum(0, proj_x).astype(np.int32)   # in [0,W-1]
     self.proj_x = np.copy(proj_x)  # store a copy in orig order
 
-    proj_y = np.floor(proj_y)
-    proj_y = np.minimum(self.proj_H - 1, proj_y)
-    proj_y = np.maximum(0, proj_y).astype(np.int32)   # in [0,H-1]
-    self.proj_y = np.copy(proj_y)  # stope a copy in original order
+    if self.tier:
+      proj_y *= 10
+      proj_y = np.floor(proj_y)
+      proj_y = np.minimum(self.proj_H*10 - 1, proj_y)
+      proj_y = np.maximum(0, proj_y).astype(np.int32)   # in [0,H-1]
+      self.proj_y = np.copy(proj_y)  # stope a copy in original order
+
+    if not self.tier:
+      proj_y = np.floor(proj_y)
+      proj_y = np.minimum(self.proj_H - 1, proj_y)
+      proj_y = np.maximum(0, proj_y).astype(np.int32)   # in [0,H-1]
+      self.proj_y = np.copy(proj_y)  # stope a copy in original order
 
     # copy of depth in original order
     self.unproj_range = np.copy(depth)
@@ -152,6 +191,7 @@ class LaserScan:
     # order in decreasing depth
     indices = np.arange(depth.shape[0])
     order = np.argsort(depth)[::-1]
+    #print(depth)
     depth = depth[order]
     indices = indices[order]
     points = self.points[order]
@@ -159,9 +199,48 @@ class LaserScan:
     proj_y = proj_y[order]
     proj_x = proj_x[order]
 
+    if self.tier:
+      for j in range(1):
+        start = time.time()
+        #x_idx = [i for i, x in enumerate(proj_x) if x == j]
+        x_idx = list(range(len(proj_x)))
+        np_x_idx = np.array(x_idx)
+        lst = []
+        
+        for x in x_idx:
+          #print(proj_y[x])
+          lst.append(proj_y[x])
+        np_proj_y = np.array(lst)
+        b = np.vstack((np_x_idx, np_proj_y))
+        #print(b)
+        #bsort = np.sort(b, axis=1)
+        row_num = 1
+        print(np.argsort(b[row_num]))
+        bsort = b[:, np.argsort(b[row_num])]
+        #print(bsort)
+        
+        for i in range(bsort.shape[1]):
+          if bsort[1][i] <= 290:
+            bsort[1][i] = bsort[1][i] * 10 / 290
+          elif bsort[1][i] > 290 and bsort[1][i] <= 730:
+            bsort[1][i] = (bsort[1][i] - 290) * 107 / 440 + 10
+          elif bsort[1][i] > 730:
+            bsort[1][i] = (bsort[1][i] - 730) * 10 / 540 + 117
+        print(bsort)
+
+        for i in range(bsort.shape[1]):
+          proj_y[bsort[0][i]] = bsort[1][i]
+
+        end = time.time()
+        elapsed = end - start
+        print("time:", elapsed)
+        #sys.exit()
+
     # assing to images
     self.proj_range[proj_y, proj_x] = depth
+    #print(self.proj_range.shape)
     self.proj_xyz[proj_y, proj_x] = points
+    #print(self.proj_xyz[0,0])
     self.proj_remission[proj_y, proj_x] = remission
     self.proj_idx[proj_y, proj_x] = indices
     self.proj_mask = (self.proj_idx > 0).astype(np.int32)

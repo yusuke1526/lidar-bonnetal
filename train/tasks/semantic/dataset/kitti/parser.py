@@ -25,7 +25,7 @@ class SemanticKitti(Dataset):
                learning_map,  # classes to learn (0 to N-1 for xentropy)
                learning_map_inv,    # inverse of previous (recover labels)
                sensor,              # sensor to parse scans from
-               max_points=150000,   # max number of points present in dataset
+               max_points=300000,   # max number of points present in dataset
                gt=True):            # send ground truth?
     # save deats
     self.root = os.path.join(root, "sequences")
@@ -138,6 +138,7 @@ class SemanticKitti(Dataset):
 
     # make a tensor of the uncompressed data (with the max num points)
     unproj_n_points = scan.points.shape[0]
+    #print(scan.points.shape) #(num, 3))
     unproj_xyz = torch.full((self.max_points, 3), -1.0, dtype=torch.float)
     unproj_xyz[:unproj_n_points] = torch.from_numpy(scan.points)
     unproj_range = torch.full([self.max_points], -1.0, dtype=torch.float)
@@ -152,9 +153,13 @@ class SemanticKitti(Dataset):
 
     # get points and labels
     proj_range = torch.from_numpy(scan.proj_range).clone()
+    #print(proj_range.shape) #(64,1024)
     proj_xyz = torch.from_numpy(scan.proj_xyz).clone()
+    #print(proj_xyz.shape) #(64,1024,3)
     proj_remission = torch.from_numpy(scan.proj_remission).clone()
+    #print(proj_remission.shape) #(64,1024)
     proj_mask = torch.from_numpy(scan.proj_mask)
+    #print(proj_mask.shape) #(64,1024)
     if self.gt:
       proj_labels = torch.from_numpy(scan.proj_sem_label).clone()
       proj_labels = proj_labels * proj_mask
@@ -167,10 +172,19 @@ class SemanticKitti(Dataset):
     proj = torch.cat([proj_range.unsqueeze(0).clone(),
                       proj_xyz.clone().permute(2, 0, 1),
                       proj_remission.unsqueeze(0).clone()])
+    #print(proj.shape) #(5,64,1024)
     proj = (proj - self.sensor_img_means[:, None, None]
             ) / self.sensor_img_stds[:, None, None]
     proj = proj * proj_mask.float()
 
+    #without remission
+    # proj_wo_remis = torch.cat([proj_range.unsqueeze(0).clone(),
+    #                            proj_xyz.clone().premute(2,0,1)])
+    # proj_wo_remis = (proj_wo_remis - self.sensor_img_means[:4, None, None]
+    #                  ) / self.sensor_img_stds[:4, None, None]
+    # proj_wo_remis = proj_wo_remis * proj_mask.float()
+    proj_wo_remis = proj[:4]
+    #print(proj_wo_remis.shape)
     # get name and sequence
     path_norm = os.path.normpath(scan_file)
     path_split = path_norm.split(os.sep)

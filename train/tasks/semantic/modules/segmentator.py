@@ -30,9 +30,10 @@ class Segmentator(nn.Module):
                         self.ARCH["dataset"]["sensor"]["img_prop"]["height"],
                         self.ARCH["dataset"]["sensor"]["img_prop"]["width"]))
 
-    if torch.cuda.is_available():
-      stub = stub.cuda()
-      self.backbone.cuda()
+    #not using cuda
+    # if torch.cuda.is_available():
+    #   stub = stub.cuda()
+    #   self.backbone.cuda()
     _, stub_skips = self.backbone(stub)
 
     decoderModule = imp.load_source("decoderModule",
@@ -93,6 +94,7 @@ class Segmentator(nn.Module):
 
     # get weights
     if path is not None:
+      print("use pretrained model!!!!!!!!!!!!!")
       # try backbone
       try:
         w_dict = torch.load(path + "/backbone" + path_append,
@@ -147,9 +149,13 @@ class Segmentator(nn.Module):
 
   def forward(self, x, mask=None):
     y, skips = self.backbone(x)
+    #print(y.shape)
     y = self.decoder(y, skips)
+    #print(y.shape)
     y = self.head(y)
+    #print(y.shape)
     y = F.softmax(y, dim=1)
+    #print(y.shape)
     if self.CRF:
       assert(mask is not None)
       y = self.CRF(x, y, mask)
