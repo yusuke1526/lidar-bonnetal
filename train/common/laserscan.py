@@ -109,6 +109,10 @@ class LaserScan:
     if self.project:
       self.do_range_projection()
 
+  def remove_random_lines(self):
+    """remove some lines to augment range images"""
+    
+    
   def do_range_projection(self):
     """ Project a pointcloud into a spherical projection image.projection.
         Function takes no arguments because it can be also called externally
@@ -238,8 +242,9 @@ class LaserScan:
 
     # assing to images
     self.proj_range[proj_y, proj_x] = depth
-    #print(self.proj_range.shape)
+    print(self.proj_range[0][0])
     self.proj_xyz[proj_y, proj_x] = points
+    print(self.proj_xyz[0][0])
     #print(self.proj_xyz[0,0])
     self.proj_remission[proj_y, proj_x] = remission
     self.proj_idx[proj_y, proj_x] = indices
