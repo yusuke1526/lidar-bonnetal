@@ -65,14 +65,14 @@ class User():
     # GPU?
     self.gpu = False
     self.model_single = self.model
-    self.device = torch.device("cpu")
-    #self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #self.device = torch.device("cpu")
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Infering in device: ", self.device)
-    # if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-    #   cudnn.benchmark = True
-    #   cudnn.fastest = True
-    #   self.gpu = True
-    #   self.model.cuda()
+    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+      cudnn.benchmark = True
+      cudnn.fastest = True
+      self.gpu = True
+      self.model.cuda()
 
   def infer(self):
     #do train set

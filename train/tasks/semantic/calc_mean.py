@@ -162,12 +162,14 @@ if __name__ == "__main__":
     calc = True
     higher_cut = False
     root = "./dataset"
-    roots = os.path.join(root, "sequences", "101")
-    dests = os.path.join(root, "sequences", "101", "velodyne")
-    try:
-        os.makedirs(dests, exist_ok=True)
-    except FileExistsError:
-        pass
+    roots = os.path.join(root, "sequences", "22")
+
+    if higher_cut:
+        dests = os.path.join(root, "sequences", "23", "velodyne")
+        try:
+            os.makedirs(dests, exist_ok=True)
+        except FileExistsError:
+            pass
     scan_path = os.path.join(roots, "velodyne")
     scan_files = [os.path.join(dp,f) for dp, dn, fn in os.walk(os.path.expanduser(scan_path)) for f in fn if is_scan(f)]
     scan_files.sort()
