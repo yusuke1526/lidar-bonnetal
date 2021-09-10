@@ -6,19 +6,23 @@ from vispy.scene import visuals, SceneCanvas
 import numpy as np
 from matplotlib import pyplot as plt
 from common.laserscan import LaserScan, SemLaserScan
-
+import os
 
 class LaserScanVis:
   """Class that creates and handles a visualizer for a pointcloud"""
 
-  def __init__(self, scan, scan_names, label_names, offset=0,
-               semantics=True, instances=False):
+  def __init__(self, scan, scan_names, save_scan_paths, label_names, save_label_paths, offset=0,
+               semantics=True, instances=False, save=False):
     self.scan = scan
     self.scan_names = scan_names
+    self.save_scan_paths = save_scan_paths
     self.label_names = label_names
+    self.save_label_paths = save_label_paths
     self.offset = offset
     self.semantics = semantics
     self.instances = instances
+
+    self.save = save
     # sanity check
     if not self.semantics and self.instances:
       print("Instances are only allowed in when semantics=True")
@@ -128,6 +132,7 @@ class LaserScanVis:
     # first open data
     self.scan.open_scan(self.scan_names[self.offset])
     if self.semantics:
+      #print(self.label_names)
       self.scan.open_label(self.label_names[self.offset])
       self.scan.colorize()
 
@@ -189,6 +194,15 @@ class LaserScanVis:
     if self.instances:
       self.inst_img_vis.set_data(self.scan.proj_inst_color[..., ::-1])
       self.inst_img_vis.update()
+
+    if self.save:
+      zero = "{0:06d}".format(self.offset)
+      bin_file = os.path.join(self.save_scan_paths, zero+".bin")
+      self.scan.save_scan(bin_file)
+      if self.semantics:
+        label_file = os.path.join(self.save_label_paths, zero+".label")
+        self.scan.save_label(label_file)
+      
 
   # interface
   def key_press(self, event):

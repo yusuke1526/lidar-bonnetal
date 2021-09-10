@@ -2,18 +2,18 @@
 # This file is covered by the LICENSE file in the root of this project.
 import numpy as np
 import time
-import sys
 
 class LaserScan:
   """Class that contains LaserScan with x,y,z,r"""
   EXTENSIONS_SCAN = ['.bin']
 
-  def __init__(self, project=False, H=64, W=1024, fov_up=3.0, fov_down=-25.0):
+  def __init__(self, project=False, H=64, W=1024, fov_up=3.0, fov_down=-25.0, delete_nums=0):
     self.project = project
     self.proj_H = H
     self.proj_W = W
     self.proj_fov_up = fov_up
     self.proj_fov_down = fov_down
+    self.delete_nums = delete_nums
 
     self.tier = False
     self.reset()
@@ -22,6 +22,9 @@ class LaserScan:
     """ Reset scan members. """
     self.points = np.zeros((0, 3), dtype=np.float32)        # [m, 3]: x, y, z
     self.remissions = np.zeros((0, 1), dtype=np.float32)    # [m ,1]: remission
+
+    self.points_after = np.zeros((0, 3), dtype=np.float32)        # [m, 3]: x, y, z
+    self.remissions_after = np.zeros((0, 1), dtype=np.float32)    # [m ,1]: remission
 
     # projected range image - [H,W] range (-1 is no data)
     self.proj_range = np.full((self.proj_H, self.proj_W), -1,
@@ -58,6 +61,13 @@ class LaserScan:
   def __len__(self):
     return self.size()
 
+  def save_scan(self, new_filename):
+    scan = np.zeros((self.points_after.shape[0],4), dtype=np.float32)
+    scan[:, 0:3] = self.points_after
+    scan[:, 3] = self.remissions_after
+    scan.ravel()
+    scan.tofile(new_filename)
+    
   def open_scan(self, filename):
     """ Open raw scan and fill in attributes
     """
@@ -108,11 +118,24 @@ class LaserScan:
     # if projection is wanted, then do it and fill in the structure
     if self.project:
       self.do_range_projection()
+      #self.remove_random_lines()
 
   def remove_random_lines(self):
     """remove some lines to augment range images"""
+    import random
+    l = list(range(self.proj_H))
+    ra = random.sample(l, k=20)
     
-    
+    # if self.project:
+    #   self.do_range_projection()
+    self.proj_range[ra, :] = -1.
+    self.proj_xyz[ra, :] = -1.
+    self.proj_remission[ra, :] = -1.
+    self.proj_idx[ra, :] = -1
+    print(self.proj_idx[:,500])
+    self.proj_mask[ra, :] = 0
+    print(self.proj_mask[:,500])
+
   def do_range_projection(self):
     """ Project a pointcloud into a spherical projection image.projection.
         Function takes no arguments because it can be also called externally
@@ -148,23 +171,6 @@ class LaserScan:
     proj_x = 0.5 * (yaw / np.pi + 1.0)          # in [0.0, 1.0]
     #print("proj_x:", proj_x[0:10])
     proj_y = 1.0 - (pitch + abs(fov_down)) / fov        # in [0.0, 1.0]
-    #print("proj_y:", proj_y[0:10])
-    #print(np.min(proj_y))
-    #print(np.max(proj_y))
-    
-    #print(proj_y[0:100])
-    # if self.tier:
-    #   print(np.max(proj_y))
-    #   #proj_y = np.where(proj_y <= 0.5, proj_y*2, 1.0)
-    #   #proj_y = np.maximum(0, proj_y).astype(np.float32)
-    #   #proj_y = np.where(proj_y >= 0.01, np.sqrt(proj_y), proj_y)
-    #   proj_y = np.where(proj_y >= 0.4, (proj_y - 0.4)/5.0 + 0.4 , proj_y)
-    #   #proj_y = np.sqrt(proj_y)
-
-    #   proj_y *= 1.0/ 0.52
-    #   #proj_y = np.where(proj_y >= 0.6, (proj_y - 0.6)/5.0 + 0.6 , proj_y)
-    #   #proj_y *= 1.0/0.68
-    #   print(np.max(proj_y))
       
     # scale to image size using angular resolution
     proj_x *= self.proj_W                              # in [0.0, W]
@@ -175,13 +181,6 @@ class LaserScan:
     proj_x = np.minimum(self.proj_W - 1, proj_x)
     proj_x = np.maximum(0, proj_x).astype(np.int32)   # in [0,W-1]
     self.proj_x = np.copy(proj_x)  # store a copy in orig order
-
-    if self.tier:
-      proj_y *= 10
-      proj_y = np.floor(proj_y)
-      proj_y = np.minimum(self.proj_H*10 - 1, proj_y)
-      proj_y = np.maximum(0, proj_y).astype(np.int32)   # in [0,H-1]
-      self.proj_y = np.copy(proj_y)  # stope a copy in original order
 
     if not self.tier:
       proj_y = np.floor(proj_y)
@@ -203,60 +202,47 @@ class LaserScan:
     proj_y = proj_y[order]
     proj_x = proj_x[order]
 
-    if self.tier:
-      for j in range(1):
-        start = time.time()
-        #x_idx = [i for i, x in enumerate(proj_x) if x == j]
-        x_idx = list(range(len(proj_x)))
-        np_x_idx = np.array(x_idx)
-        lst = []
-        
-        for x in x_idx:
-          #print(proj_y[x])
-          lst.append(proj_y[x])
-        np_proj_y = np.array(lst)
-        b = np.vstack((np_x_idx, np_proj_y))
-        #print(b)
-        #bsort = np.sort(b, axis=1)
-        row_num = 1
-        print(np.argsort(b[row_num]))
-        bsort = b[:, np.argsort(b[row_num])]
-        #print(bsort)
-        
-        for i in range(bsort.shape[1]):
-          if bsort[1][i] <= 290:
-            bsort[1][i] = bsort[1][i] * 10 / 290
-          elif bsort[1][i] > 290 and bsort[1][i] <= 730:
-            bsort[1][i] = (bsort[1][i] - 290) * 107 / 440 + 10
-          elif bsort[1][i] > 730:
-            bsort[1][i] = (bsort[1][i] - 730) * 10 / 540 + 117
-        print(bsort)
-
-        for i in range(bsort.shape[1]):
-          proj_y[bsort[0][i]] = bsort[1][i]
-
-        end = time.time()
-        elapsed = end - start
-        print("time:", elapsed)
-        #sys.exit()
-
     # assing to images
-    self.proj_range[proj_y, proj_x] = depth
-    print(self.proj_range[0][0])
+    self.proj_range[proj_y, proj_x] = depth    
     self.proj_xyz[proj_y, proj_x] = points
-    print(self.proj_xyz[0][0])
-    #print(self.proj_xyz[0,0])
     self.proj_remission[proj_y, proj_x] = remission
     self.proj_idx[proj_y, proj_x] = indices
     self.proj_mask = (self.proj_idx > 0).astype(np.int32)
 
+    #remove several lines
+    import random
+    l = list(range(self.proj_H))
+    ra = random.sample(l, k=self.delete_nums)
+  
+    self.proj_range[ra, :] = -1.
+    self.proj_xyz[ra, :] = -1.
+    self.proj_remission[ra, :] = -1.
+    self.proj_idx[ra, :] = -1
+    print(self.proj_idx[:,500])
+    self.proj_mask[ra, :] = 0
+    print(self.proj_mask[:,500])
 
+    points = self.proj_xyz[proj_y, proj_x]
+    self.points[order] = points
+    self.points_after = np.delete(self.points, np.where(self.points == -1)[0] , 0)
+
+    remission = self.proj_remission[proj_y, proj_x]
+    print(self.remissions.shape)
+    self.remissions[order] = remission
+    self.remissions_after = np.delete(self.remissions, np.where(self.remissions == -1))
+    print(self.remissions_after.shape)
+
+    indices[order] = self.proj_idx[proj_y, proj_x]
+    self.indices_after = np.delete(indices, np.where(indices == -1))
+    print(indices.shape)
+    print(self.indices_after[0:100])
+  
 class SemLaserScan(LaserScan):
   """Class that contains LaserScan with x,y,z,r,sem_label,sem_color_label,inst_label,inst_color_label"""
   EXTENSIONS_LABEL = ['.label']
 
-  def __init__(self,  sem_color_dict=None, project=False, H=64, W=1024, fov_up=3.0, fov_down=-25.0, max_classes=300):
-    super(SemLaserScan, self).__init__(project, H, W, fov_up, fov_down)
+  def __init__(self,  sem_color_dict=None, project=False, H=64, W=1024, fov_up=3.0, fov_down=-25.0, max_classes=300, delete_nums=0):
+    super(SemLaserScan, self).__init__(project, H, W, fov_up, fov_down, delete_nums)
     self.reset()
 
     # make semantic colors
@@ -310,6 +296,13 @@ class SemLaserScan(LaserScan):
     self.proj_inst_color = np.zeros((self.proj_H, self.proj_W, 3),
                                     dtype=np.float)              # [H,W,3] color
 
+  def save_label(self, new_filename):
+    label = np.zeros((self.sem_label_after.shape[0], 1), dtype=np.int32)
+    label = self.sem_label_after + (self.inst_label_after << 16)
+    label.ravel()
+    print("label:", label.shape)
+    label.tofile(new_filename)
+
   def open_label(self, filename):
     """ Open raw scan and fill in attributes
     """
@@ -324,6 +317,7 @@ class SemLaserScan(LaserScan):
 
     # if all goes well, open label
     label = np.fromfile(filename, dtype=np.int32)
+    print("label:", label)
     label = label.reshape((-1))
 
     # set it
@@ -363,7 +357,9 @@ class SemLaserScan(LaserScan):
   def do_label_projection(self):
     # only map colors to labels that exist
     mask = self.proj_idx >= 0
-
+    inv_mask = self.proj_idx < 0
+    print(self.proj_idx) #shape (64,1024)
+    #print(mask.shape)
     # semantics
     self.proj_sem_label[mask] = self.sem_label[self.proj_idx[mask]]
     self.proj_sem_color[mask] = self.sem_color_lut[self.sem_label[self.proj_idx[mask]]]
@@ -371,3 +367,18 @@ class SemLaserScan(LaserScan):
     # instances
     self.proj_inst_label[mask] = self.inst_label[self.proj_idx[mask]]
     self.proj_inst_color[mask] = self.inst_color_lut[self.inst_label[self.proj_idx[mask]]]
+    #print(self.proj_sem_label[:, 500])
+    
+    #print(self.sem_label[self.proj_idx[mask]].shape)
+    #print(self.sem_label[self.proj_idx[inv_mask]].shape)
+    #print(self.sem_label.shape)
+    #print(self.proj_idx[mask].shape)
+    self.sem_label_after = self.sem_label[self.indices_after]
+    self.inst_label_after = self.inst_label[self.indices_after]
+
+    #self.proj_sem_label[ra, :] = -1.
+    #self.sem_label_after = np.delete(self.sem_label, np.where(self.sem_label == 0))
+    #self.sem_label_after = np.delete(self.sem_label, )
+    #print(self.sem_label_after.shape)
+    #self.indices_after = np.delete(indices, np.where(indices == -1))
+    

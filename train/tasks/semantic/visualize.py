@@ -66,6 +66,13 @@ if __name__ == '__main__':
       ' that safety.'
       'Defaults to %(default)s',
   )
+  parser.add_argument(
+    "--save",
+    type=int,
+    default=False)
+  parser.add_argument(
+    "--save_num",
+    type=str, default="2020")
   FLAGS, unparsed = parser.parse_known_args()
 
   # print summary of what we will do
@@ -106,14 +113,31 @@ if __name__ == '__main__':
       os.path.expanduser(scan_paths)) for f in fn]
   scan_names.sort()
 
+  #print(scan_names)
+  #save scan
+  save_scan_paths = os.path.join(FLAGS.dataset, "sequences",
+                                 FLAGS.save_num, "velodyne")
+  if os.path.isdir(save_scan_paths):
+    print("Sequence folder already exists! Change a foler name!")
+    #quit()
+  else:
+    os.makedirs(save_scan_paths)
+    print("New Folder. OK!")
+
   # does sequence folder exist?
+  save_label_paths = os.path.join(FLAGS.dataset, "sequences",
+                                  FLAGS.save_num, "labels")
   if not FLAGS.ignore_semantics:
     if FLAGS.predictions is not None:
       label_paths = os.path.join(FLAGS.predictions, "sequences",
                                  FLAGS.sequence, "predictions")
+      # save_label_paths = os.path.join(FLAGS.dataset, "sequences",
+      #                                 "2020", "predictions")
     else:
       label_paths = os.path.join(FLAGS.dataset, "sequences",
                                  FLAGS.sequence, "labels")
+      save_label_paths = os.path.join(FLAGS.dataset, "sequences",
+                                      FLAGS.save_num, "labels")
     if os.path.isdir(label_paths):
       print("Labels folder exists! Using labels from %s" % label_paths)
     else:
@@ -123,6 +147,13 @@ if __name__ == '__main__':
     label_names = [os.path.join(dp, f) for dp, dn, fn in os.walk(
         os.path.expanduser(label_paths)) for f in fn]
     label_names.sort()
+
+    if os.path.isdir(save_label_paths):
+      print("Sequence folder already exists! Change a foler name!")
+      #quit()
+    else:
+      os.makedirs(save_label_paths)
+      print("New Folder. OK!")
 
     # check that there are same amount of labels and scans
     if not FLAGS.ignore_safety:
@@ -135,7 +166,7 @@ if __name__ == '__main__':
   else:
     color_dict = CFG["color_map"]
     #scan = SemLaserScan(color_dict, project=True) #3, -25,  1024, 64
-    scan = SemLaserScan(color_dict, project=True, H=128, W=1024, fov_up=15.0, fov_down=-25.0)
+    scan = SemLaserScan(color_dict, project=True, H=64, W=1024, fov_up=3.0, fov_down=-25.0, delete_nums=20)
 
   # create a visualizer
   semantics = not FLAGS.ignore_semantics
@@ -143,16 +174,20 @@ if __name__ == '__main__':
     label_names = None
   vis = LaserScanVis(scan=scan,
                      scan_names=scan_names,
+                     save_scan_paths=save_scan_paths,
                      label_names=label_names,
+                     save_label_paths=save_label_paths,
                      offset=FLAGS.offset,
                      semantics=semantics,
-                     instances=False)
+                     instances=False,
+                     save=FLAGS.save)
 
   # print instructions
   print("To navigate:")
   print("\tb: back (previous scan)")
   print("\tn: next (next scan)")
   print("\tq: quit (exit program)")
+  print(FLAGS.save)
 
   # run the visualizer
   vis.run()
