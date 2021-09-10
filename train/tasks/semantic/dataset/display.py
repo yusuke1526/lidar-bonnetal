@@ -2,8 +2,11 @@
 import numpy as np
 from mayavi import mlab
 
-#fp = open("./sequences/00/velodyne/000201.bin", "rb")
-fp = open("./sequences/101/velodyne/010.bin", "rb")
+import mayavi
+#mayavi.use("Agg")
+
+fp = open("./sequences/00/velodyne/000201.bin", "rb")
+#fp = open("./sequences/101/velodyne/010.bin", "rb")
 
 pointcloud = np.fromfile(fp, dtype=np.float32, count=-1).reshape([-1,4])
 print(pointcloud.shape)

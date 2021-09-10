@@ -93,22 +93,22 @@ class Trainer():
     self.n_gpus = 0
     self.model_single = self.model
     #not using gpu
-    self.device = torch.device("cpu")
-    # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #self.device = torch.device("cpu")
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Training in device: ", self.device)
-    # if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-    #   cudnn.benchmark = True
-    #   cudnn.fastest = True
-    #   self.gpu = True
-    #   self.n_gpus = 1
-    #   self.model.cuda()
-    # if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-    #   print("Let's use", torch.cuda.device_count(), "GPUs!")
-    #   self.model = nn.DataParallel(self.model)   # spread in gpus
-    #   self.model = convert_model(self.model).cuda()  # sync batchnorm
-    #   self.model_single = self.model.module  # single model to get weight names
-    #   self.multi_gpu = True
-    #   self.n_gpus = torch.cuda.device_count()
+    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+      cudnn.benchmark = True
+      cudnn.fastest = True
+      self.gpu = True
+      self.n_gpus = 1
+      self.model.cuda()
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+      print("Let's use", torch.cuda.device_count(), "GPUs!")
+      self.model = nn.DataParallel(self.model)   # spread in gpus
+      self.model = convert_model(self.model).cuda()  # sync batchnorm
+      self.model_single = self.model.module  # single model to get weight names
+      self.multi_gpu = True
+      self.n_gpus = torch.cuda.device_count()
       
     # loss
     if "loss" in self.ARCH["train"].keys() and self.ARCH["train"]["loss"] == "xentropy":
@@ -320,7 +320,7 @@ class Trainer():
         proj_labels = proj_labels.long()
       # compute output
       output = model(in_vol, proj_mask)
-      print(output)
+      #print(output)
       loss = criterion(torch.log(output.clamp(min=1e-8)), proj_labels)
 
       # compute gradient and do SGD step
